@@ -8,10 +8,12 @@
 
 #include "classes.h"
 
-const int n_rows = 64;
-const int n_cols = 64;
+const int n_rows = 256;
+const int n_cols = 256;
 
 int iterations = 0;
+
+time_t t;
 
 // Override base class with your custom functionality
 class Example : public olc::PixelGameEngine
@@ -26,11 +28,20 @@ public:
 public:
   bool OnUserCreate() override
   {
+
+    srand((unsigned) time(&t));    
+
     // Called once at the start, so create things here
-    world.resize(n_rows*n_cols);
+    world.initialize(n_rows,n_cols);
     render();
 
     // Initial conditions
+    //world.initial_conditions_one_predator();
+    //world.initial_conditions_binary_random();
+    //world.initial_conditions_line();
+    //world.initial_conditions_two_colonies();
+    world.initial_conditions_random_colonies(30);
+    render();
     
     return true;
   }
@@ -40,43 +51,41 @@ public:
 
     if (GetKey(olc::Key::Q).bHeld)
       exit(0);
+
+    if (GetKey(olc::Key::SPACE).bPressed)
+      m_is_playing = !m_is_playing;
+
+    if (GetKey(olc::Key::F).bHeld)
+      delay = std::max(0,delay-1);
+
+    if (GetKey(olc::Key::S).bHeld)
+      delay = std::max(0,delay+1);
     
-    iterations++;
-    
-    // Update the simulation
-    for (int x = 0; x < n_cols; x++)
-      for (int y = 0; y < n_rows; y++){
-        if (x==0 && y==0){
-          std::cout << world[x + y*n_cols].get_prey() << "," << world[x + y*n_cols].get_pred() << std::endl;
-          //std::cout << "Iteration " << iterations << std::endl;
-          //std::cout << "Prey:     "  << world[x + y*n_cols].get_prey() << std::endl;
-          //std::cout << "Predator: "  << world[x + y*n_cols].get_pred() << std::endl;
-          //std::cout << "================" << std::endl;
+    if (m_is_playing){
+      iterations++;
+      world.update();
+      world.migrate(); 
+      render();
+    }
 
-          if (world[x + y*n_cols].get_prey()<0.001f &&
-              world[x + y*n_cols].get_pred()<0.001f)
-            exit(0);
-        }
-
-        world[x + y*n_cols].update();
-
-      }
-
-    render();
-
-    //std::this_thread::sleep_for(std::chrono::milliseconds(33));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(delay));
 
     return true;
   }
   
 private:
-  std::vector<cell> world;
-
+  bool m_is_playing = false;
+  environment world;
+  int delay = 5;
+  
   void render(){
+
+    std::vector<cell> world_tmp = world.get_world();
+    
     // Render the view
     for (int x = 0; x < n_cols; x++)
       for (int y = 0; y < n_rows; y++)
-        Draw(x, y, world[x + y*n_cols].get_color());
+        Draw(x, y, world_tmp[x + y*n_cols].get_color());
   }
 };
 
@@ -84,6 +93,7 @@ int main()
 {
 
   float xScale = 1.0f, yScale = 1.0f;
+
 
 #if defined(__GLFW__)
   glfwInit();
