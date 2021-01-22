@@ -8,8 +8,8 @@ class a081e536ec67{
 
         this.resolution = 3;
 
-        this.rows = 64;
-        this.cols = 64;
+        this.rows = 128;
+        this.cols = 128;
 
         this.running = false;
 
@@ -18,6 +18,15 @@ class a081e536ec67{
 
         this.carrying_capacity_predator = 5.0;
         this.carrying_capacity_prey = 30.0;
+
+        this.delta_t = 0.01;
+
+        this.a = 1.001;
+        this.b = 0.4;
+        this.c = 0.1;
+        this.d = 0.5;
+
+        this.redraw = true;
         
     }
 
@@ -45,7 +54,7 @@ class a081e536ec67{
                 
                 this.ctx.beginPath();
                 this.ctx.strokeStyle = '#8e8e8e';
-                this.ctx.fillStyle = '#' + this.int_to_hex((predator_pop/this.carrying_capacity_predator)*255) + '00' + this.int_to_hex((prey_pop/this.carrying_capacity_prey)*255);
+                this.ctx.fillStyle = '#' + '00' + this.int_to_hex((predator_pop/this.carrying_capacity_predator)*255)  + this.int_to_hex((prey_pop/this.carrying_capacity_prey)*255);
                 this.ctx.rect(c*this.resolution,r*this.resolution,this.resolution,this.resolution);
                 this.ctx.fill();
                 
@@ -62,20 +71,27 @@ class a081e536ec67{
             let row = Math.floor(this.rows*Math.random());
             let col = Math.floor(this.cols*Math.random());
             this.g_predator[row][col] = this.carrying_capacity_predator*Math.random();
+            //this.g_predator[row][col] = 20.0*Math.random();
             this.g_prey[row][col] = this.carrying_capacity_prey*Math.random();
+            //this.g_prey[row][col] = 30.0*Math.random();
         }
         
         this.render();
     }
 
     nextFrame(){
-        this.update();
-        this.migrate();
+        for (let i=0;i<12;i++){
+            this.update();
+            this.migrate();
+
+        }
+        
         this.render();
 
         if (this.running){
             //window.setTimeout(this.nextFrame,30);
-            window.setTimeout(this.nextFrame.bind(this),30);
+            //console.log('scheduling next frame');
+            window.setTimeout(this.nextFrame.bind(this),1);
         }
     }
 
@@ -93,6 +109,8 @@ class a081e536ec67{
     }
 
     update(){
+
+        //console.log('update');
         const tmp_predator = this.g_predator.map(arr => [...arr]);
         const tmp_prey = this.g_prey.map(arr => [...arr]);
 
@@ -105,21 +123,29 @@ class a081e536ec67{
                 let delta_prey     = this.a * pop_prey                - this.b * pop_prey * pop_predator;
                 let delta_predator = this.c * pop_prey * pop_predator - this.d * pop_predator;
 
-                this.g_predator[r][c] += delta_prey * this.delta_t;
+                //console.log(delta_prey);
+                //console.log(delta_predator);
+
+                this.g_predator[r][c] += delta_predator * this.delta_t;
                 this.g_prey[r][c]     += delta_prey * this.delta_t;
 
                 this.g_predator[r][c] = Math.max(this.g_predator[r][c],0.0);
                 this.g_prey[r][c]     = Math.max(this.g_prey[r][c],0.0);
+
+                
             }
         }
     }
 
     migrate(){
+        //console.log('migrate');
         const tmp_predator = this.g_predator.map(arr => [...arr]);
         const tmp_prey = this.g_prey.map(arr => [...arr]);
 
-        let g_tmp = this.initGrid(0.0);
+        let g_tmp_predator = this.initGrid(0.0);
+        let g_tmp_prey = this.initGrid(0.0);
 
+        // Compute the migrations
         for (let r = 0; r<this.rows; r++){
             for (let c = 0; c < this.cols; c++){
                 
@@ -140,24 +166,24 @@ class a081e536ec67{
 
                         // Need to compute the excess prey in the neighboring cell
                         migrating_prey += Math.max(tmp_prey[curr_row][curr_col]-this.carrying_capacity_prey,0.0);
+                        migrating_predators += Math.max(tmp_predator[curr_row][curr_col]-this.carrying_capacity_predator,0.0);
 
-
-                        
                     }
                 }
 
+                migrating_prey /= 8.0;
+                migrating_predators /= 8.0;
 
-                const pop_predator = tmp_predator[r][c];
-                const pop_prey = tmp_prey[r][c];
+                g_tmp_predator[r][c] = migrating_predators;
+                g_tmp_prey[r][c] = migrating_prey;
+            }
+        }
 
-                let delta_prey     = this.a * pop_prey                - this.b * pop_prey * pop_predator;
-                let delta_predator = this.c * pop_prey * pop_predator - this.d * pop_predator;
-
-                this.g_predator[r][c] += delta_prey * this.delta_t;
-                this.g_prey[r][c]     += delta_prey * this.delta_t;
-
-                this.g_predator[r][c] = Math.max(this.g_predator[r][c],0.0);
-                this.g_prey[r][c]     = Math.max(this.g_prey[r][c],0.0);
+        // Update the totals based on migrations
+        for (let r = 0; r<this.rows; r++){
+            for (let c = 0; c < this.cols; c++){
+                this.g_predator[r][c]  = Math.min(this.g_predator[r][c] + g_tmp_predator[r][c],this.carrying_capacity_predator);
+                this.g_prey[r][c]  = Math.min(this.g_prey[r][c] + g_tmp_prey[r][c],this.carrying_capacity_prey);
             }
         }
 
