@@ -9,7 +9,7 @@
 
 #include "classes.h"
 
-const int n_rows = 256;
+const int n_rows = 32;
 const int n_cols = 256;
 int iterations = 0;
 time_t t;
@@ -28,7 +28,8 @@ public:
   bool OnUserCreate() override
   {
     m_simulation.initialize(n_rows,n_cols);
-    m_simulation.set_reaction_rates(.5f,.5f,0.0f,0.0f,0.0f);
+    //m_simulation.set_reaction_rates(2.0f,5.0f,5.0f,1.0f,1.0f);
+    m_simulation.set_reaction_rates(.49f,0.5f,0.05f,0.0f,0.0f);
     
     render(0.0f,0);
     return true;
@@ -56,9 +57,10 @@ public:
     }
 
     // Check for render timeout
-    float target_frame_time = 0.033f;
+    float target_frame_time = 0.030f;
     render_timer += fElapsedTime;
     if (render_timer > target_frame_time){
+    //if (simulation_step_counter > 0){
       render(render_timer,simulation_step_counter);
       render_timer = 0.0f;
       simulation_step_counter = 0;
@@ -114,7 +116,7 @@ int main()
 #endif
 
   Example demo;
-  if (demo.Construct(n_rows, n_cols, xScale*3, yScale*3))
+  if (demo.Construct(n_cols, n_rows, xScale*3, yScale*3))
     demo.Start();
   return 0;
 

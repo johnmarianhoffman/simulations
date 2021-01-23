@@ -41,16 +41,29 @@ void Simulation::initialize(int n_rows, int n_cols){
   // 0 -> Empty grid space
   // 1 -> Occupied by A
   // 2 -> Occupied by B
-  for (int i=0; i<m_n_rows * m_n_cols;i++){
-    m_grid[i] = (species)(rand()%3);
-  }
-
   //for (int i=0; i<m_n_rows * m_n_cols;i++){
-  //  std::cout << (int)m_grid[i];
-  //
-  //  if (i%m_n_cols==0)
-  //    std::cout << std::endl;
+  //  m_grid[i] = (species)(rand()%3);
+  //  
   //}
+
+  // Only predators
+  //for (int i=0; i<m_n_rows * m_n_cols;i++){
+  //  if (rand()%3==1)
+  //    m_grid[i] = species::B;
+  //}
+  
+  for (int i=0; i<m_n_rows * m_n_cols;i++){
+    if (i%m_n_cols==0 ||
+        i%m_n_cols==1)
+        //i%m_n_cols==2 ||
+        //i%m_n_cols==3 ||
+        //i%m_n_cols==4 )
+      m_grid[i] = species::B;
+
+    if (i%m_n_cols==2 ||
+        i%m_n_cols==3)
+      m_grid[i] = species::A;
+  }
 }
 
 void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, float d2){
@@ -98,16 +111,16 @@ void Simulation::compute_W(){
       
       int curr_nn_right;
       if (j+1<m_n_cols)
-        curr_nn_left = (j+1) + i*m_n_cols;
+        curr_nn_right = (j+1) + i*m_n_cols;
       else
-        curr_nn_left = 0 + i*m_n_cols;
+        curr_nn_right = 0 + i*m_n_cols;
 
       // Each lattice site has 20 possible reactions (4 nearest neighbors, 5 possible reactions with a nearest neighbor)
       int base_offset = 20 * curr_idx; 
       std::vector<int> nn{curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right};
       for (int n=0;n<4;++n){
         int nn_idx = nn[n];
-        
+
         // R1
         if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
           m_W[base_offset + n*5 + 0] = m_k1;
@@ -142,7 +155,7 @@ void Simulation::compute_W(){
   }
 }
 
-void Simulation::compute_reaction(){
+void Simulation::compute_reaction(){  
   // Compute the cumulative function
   float W = m_W[0];
   m_W_cumulative[0] = 0.0f;
@@ -221,7 +234,7 @@ void Simulation::compute_reaction(){
   }
 
   case 2:{ // R3
-    m_grid[nn_idx] = species::Null;
+    m_grid[reaction_site_idx] = species::Null;
     break;
   }
 
