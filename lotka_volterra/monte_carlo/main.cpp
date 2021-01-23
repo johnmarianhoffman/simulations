@@ -28,8 +28,7 @@ public:
   bool OnUserCreate() override
   {
     m_simulation.initialize(n_rows,n_cols);
-    //m_simulation.set_reaction_rates(2.0f,5.0f,5.0f,1.0f,1.0f);
-    m_simulation.set_reaction_rates(.49f,0.5f,0.05f,0.0f,0.0f);
+    m_simulation.set_reaction_rates(.49f,0.5f,0.02f,0.0f,0.0f);
     
     render(0.0f,0);
     return true;
@@ -53,7 +52,7 @@ public:
     // Simulation step
     if (m_is_playing){
       ++simulation_step_counter;
-      m_simulation.step();
+      simulation_time_step = m_simulation.step();
     }
 
     // Check for render timeout
@@ -88,8 +87,9 @@ private:
       }
     }
 
-    DrawString(5,5, "Frame time:       " + std::to_string(fElapsedTime) + "s", olc::WHITE, 1);
-    DrawString(5,20,"Simulation steps: " + std::to_string(simulation_steps), olc::WHITE, 1);
+    DrawString(5,5, "Simulation time step: " + std::to_string(simulation_time_step) + "s", olc::WHITE, 1);
+    //DrawString(5,5, "Frame time:       " + std::to_string(fElapsedTime) + "s", olc::WHITE, 1);
+    //DrawString(5,20,"Simulation steps: " + std::to_string(simulation_steps), olc::WHITE, 1);
 
   }
 
@@ -99,6 +99,8 @@ private:
   int delay = 5;
   float render_timer = 0.0f;
   int simulation_step_counter = 0;
+
+  float simulation_time_step = 0.0f;
   
   Simulation m_simulation;
 };

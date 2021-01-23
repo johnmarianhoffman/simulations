@@ -7,7 +7,7 @@ public: // methods
   
   void initialize(int n_rows, int n_cols);
   void set_reaction_rates(float k1, float k2, float k3, float d1, float d2);
-  bool step();
+  float step();
 
   std::vector<int> get_int_grid();
 
@@ -24,7 +24,8 @@ private: // properties
   int m_n_rows;
   int m_n_cols;
 
-  std::vector<species> m_grid;  
+  std::vector<species> m_grid;
+  float m_W_sum;
   std::vector<float> m_W;
   std::vector<float> m_W_cumulative;
 
@@ -75,14 +76,14 @@ void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, floa
   m_reaction_rates_are_set = true;
 }
 
-bool Simulation::step(){
+float Simulation::step(){
   if (!m_reaction_rates_are_set)
-    return false;
+    return 0.0;
 
   compute_W();
   compute_reaction();
   
-  return true;
+  return 1.0f/m_W_sum;
 }
 
 void Simulation::compute_W(){
@@ -164,6 +165,8 @@ void Simulation::compute_reaction(){
     m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];
     W += m_W[i];
   }
+
+  m_W_sum = W;
 
   // Throw our random number
   float reaction = W * (float)rand()/(float)RAND_MAX;
