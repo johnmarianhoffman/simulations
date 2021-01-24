@@ -1,4 +1,28 @@
-#include<algorithm>
+#include <algorithm>
+#include <chrono>
+#include <ratio>
+#include <numeric>
+
+class Timer{
+public:
+  Timer(){};
+  ~Timer(){};
+
+  void tic(){
+    m_start = std::chrono::high_resolution_clock::now();
+  }
+
+  float toc(std::string event_name){
+    m_stop = std::chrono::high_resolution_clock::now();
+    //std::cout << event_name <<": " << std::chrono::duration<float,std::milli>(m_stop-m_start).count() << "ms" << std::endl;
+    return std::chrono::duration<float,std::milli>(m_stop-m_start).count();
+  }
+
+private:
+  std::chrono::high_resolution_clock::time_point m_start;
+  std::chrono::high_resolution_clock::time_point m_stop;
+
+};
 
 class Simulation{
 public: // methods
@@ -10,13 +34,20 @@ public: // methods
   void set_reaction_rates(float k1, float k2, float k3, float d1, float d2);
   float step();
   void refresh();
-  std::vector<int> get_int_grid();
+  int get_grid(int row, int col);
 
+  float get_accumulate_time(){return m_time_accumulate;}
+  float get_reaction_search_time(){return m_time_reaction_search;}
+  float get_execute_reaction_time(){return m_time_execute_reaction;}
+  float get_compute_W_time(){return m_time_compute_W;}
+  
 private: // methods
   void compute_W();
   void compute_W_single_site(int row, int col);
   void compute_reaction();
   void handle_site_change(int row, int col);
+
+  void debug_print_W();
   
 private: // properties
   enum class species{Null,A,B};
@@ -31,6 +62,11 @@ private: // properties
   float m_W_sum;
   std::vector<float> m_W;
   std::vector<float> m_W_cumulative;
+
+  float m_time_accumulate       = 0.0f;
+  float m_time_reaction_search  = 0.0f;
+  float m_time_execute_reaction = 0.0f;
+  float m_time_compute_W        = 0.0f;
 
 };
 
@@ -64,18 +100,20 @@ void Simulation::initialize(int n_rows, int n_cols){
   //    m_grid[i] = species::B;
   //}
   
-  // for (int i=0; i<m_n_rows * m_n_cols;i++){
-  //   if (i%m_n_cols==0 ||
-  //       i%m_n_cols==1)
-  //       //i%m_n_cols==2 ||
-  //       //i%m_n_cols==3 ||
-  //       //i%m_n_cols==4 )
-  //     m_grid[i] = species::B;
+   for (int i=0; i<m_n_rows * m_n_cols;i++){
+     if (i%m_n_cols==0 ||
+         i%m_n_cols==1)
+         //i%m_n_cols==2 ||
+         //i%m_n_cols==3 ||
+         //i%m_n_cols==4 )
+       m_grid[i] = species::B;
 
-  //   if (i%m_n_cols==2 ||
-  //       i%m_n_cols==3)
-  //     m_grid[i] = species::A;
-  // }
+     if (i%m_n_cols==2 ||
+         i%m_n_cols==3)
+       m_grid[i] = species::A;
+   }
+
+   compute_W();
 }
 
 void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, float d2){
@@ -87,11 +125,25 @@ void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, floa
   m_reaction_rates_are_set = true;
 }
 
+void Simulation::debug_print_W(){
+
+  for (size_t i=0; i<m_W.size();++i){
+    
+    std::cout << std::to_string(m_W[i]) << "  ";
+
+    if (i%5==0)
+      std::cout << std::endl;
+
+  }
+  
+
+}
+
 float Simulation::step(){
   if (!m_reaction_rates_are_set)
     return 0.0;
 
-  compute_W();
+  //compute_W();
   compute_reaction();
   
   return 1.0f/m_W_sum;
@@ -166,42 +218,99 @@ void Simulation::compute_W_single_site(int row, int col){
 }
 
 void Simulation::compute_W(){
+  Timer t;
+  t.tic();
   for (int i=0;i<m_n_rows;i++){
     for (int j=0;j<m_n_cols;j++){
       compute_W_single_site(i,j);
     }
   }
+  m_time_compute_W = t.toc("Compute W (whole matrix)");
 }
 
 void Simulation::handle_site_change(int row, int col){
+  // This function addresses updating the W matrix for a single site
+  // as well as its nearest neighbors
 
+  compute_W_single_site(row,col);
+
+  // Up
+  int nn_row, nn_col;
+  if (row-1>=0)
+    nn_row = row-1;
+  else
+    nn_row = m_n_rows - 1;
+  nn_col = col;
+
+  compute_W_single_site(nn_row,nn_col);
+
+  // Down
+  if (row+1<m_n_rows)
+    nn_row = row+1;
+  else
+    nn_row = 0;
+  nn_col = col;
+
+  compute_W_single_site(nn_row,nn_col);
+
+  // Left
+  if (col-1>=0)
+    nn_col = col-1;
+  else
+    nn_col = m_n_cols - 1;
+  nn_row = row;
+
+  compute_W_single_site(nn_row,nn_col);
+  
+  // Right
+  if (col+1<m_n_cols)
+    nn_col = col+1;
+  else
+    nn_col = 0;
+  nn_row = row;
+
+  compute_W_single_site(nn_row,nn_col);
+  
 }
 
-void Simulation::compute_reaction(){  
+void Simulation::compute_reaction(){
+
+  Timer t;
+  
   // Compute the cumulative function
+  t.tic();
   float W = m_W[0];
   m_W_cumulative[0] = 0.0f;
   
-  for (int i=1;i<m_n_rows*m_n_cols*20;i++){
-    m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];
+  //for (int i=1;i<m_n_rows*m_n_cols*20;i++){
+  //  m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];
+  //  W += m_W[i];
+  //}
+  
+  for (int i=1;i<m_n_rows*m_n_cols*20;i++){  
+    m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];  
     W += m_W[i];
   }
 
   m_W_sum = W;
-
+  m_time_accumulate = t.toc("Compute cumulative matrix");
+  
   // Throw our random number
   float reaction = W * (float)rand()/(float)RAND_MAX;
 
   // Determine which reaction occurs
+  t.tic();
   auto it = std::upper_bound(m_W_cumulative.begin(),m_W_cumulative.end(),reaction);
   if (it==m_W_cumulative.end()){
     std::cout << "No more reactions!" << std::endl;
     return;
   }
+  m_time_reaction_search = t.toc("Find reaction");
 
   int reaction_idx = (it - m_W_cumulative.begin()) - 1;
   
   // Translate the reaction idx into what actually happened and where
+  t.tic();
   int reaction_site_idx = reaction_idx/20; // Grid idx of the reaction that occured
   int reaction_nn_idx = (reaction_idx/5)%4; // Produce a number between 0 and 3
   int reaction_specific_idx = reaction_idx%5; // Produce a number between 0 and 4
@@ -258,28 +367,37 @@ void Simulation::compute_reaction(){
 
   case 0:{ // R1
     m_grid[nn_idx] = species::A;
+    handle_site_change(nn_row,nn_col);
     break;
   }
 
   case 1:{ // R2
     m_grid[nn_idx] = species::B;
+    handle_site_change(nn_row,nn_col);
     break;
   }
 
   case 2:{ // R3
     m_grid[reaction_site_idx] = species::Null;
+    handle_site_change(curr_row,curr_col);
     break;
   }
 
   case 3:{ // R4
     m_grid[reaction_site_idx] = species::Null;
     m_grid[nn_idx] = species::A;
+    
+    handle_site_change(curr_row,curr_col);
+    handle_site_change(nn_row,nn_col);
     break;
   }
 
   case 4:{ // R5
     m_grid[reaction_site_idx] = species::Null;
     m_grid[nn_idx] = species::B;
+
+    handle_site_change(curr_row,curr_col);
+    handle_site_change(nn_row,nn_col);
     break;
   }
 
@@ -287,12 +405,10 @@ void Simulation::compute_reaction(){
     std::cout << "Something has gone wrong (identifying which reaction occurred)" << std::endl;
   }
   }
+  m_time_execute_reaction = t.toc("Execute reaction and update");
   
 }
 
-std::vector<int> Simulation::get_int_grid(){
-  std::vector<int> copy(m_grid.size());
-  for (int i=0;i<m_grid.size();i++)
-    copy[i] = (int)m_grid[i];
-  return copy;
+int Simulation::get_grid(int row, int col){
+  return (int)m_grid[col + row * m_n_cols];
 }
