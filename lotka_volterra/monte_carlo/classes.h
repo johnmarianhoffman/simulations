@@ -14,7 +14,9 @@ public: // methods
 
 private: // methods
   void compute_W();
+  void compute_W_single_site(int row, int col);
   void compute_reaction();
+  void handle_site_change(int row, int col);
   
 private: // properties
   enum class species{Null,A,B};
@@ -95,74 +97,84 @@ float Simulation::step(){
   return 1.0f/m_W_sum;
 }
 
+void Simulation::compute_W_single_site(int row, int col){
+  int i = row;
+  int j = col;
+  int curr_idx = j + i*m_n_cols;
+
+  // Periodic boundary conditions
+  int curr_nn_up;
+  if (i-1>=0)
+    curr_nn_up = j + (i-1)*m_n_cols;
+  else
+    curr_nn_up = j + (m_n_rows-1)*m_n_cols;
+
+  int curr_nn_down;
+  if (i+1<m_n_rows)
+    curr_nn_down = j + (i+1)*m_n_cols;
+  else
+    curr_nn_down = j + (0)*m_n_cols;
+
+  int curr_nn_left;
+  if (j-1>=0)
+    curr_nn_left = (j-1) + i*m_n_cols;
+  else
+    curr_nn_left = (m_n_cols-1) + i*m_n_cols;
+      
+  int curr_nn_right;
+  if (j+1<m_n_cols)
+    curr_nn_right = (j+1) + i*m_n_cols;
+  else
+    curr_nn_right = 0 + i*m_n_cols;
+
+  // Each lattice site has 20 possible reactions (4 nearest neighbors, 5 possible reactions with a nearest neighbor)
+  int base_offset = 20 * curr_idx; 
+  std::vector<int> nn{curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right};
+  for (int n=0;n<4;++n){
+    int nn_idx = nn[n];
+
+    // R1
+    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
+      m_W[base_offset + n*5 + 0] = m_k1;
+    else 
+      m_W[base_offset + n*5 + 0] = 0.0f;
+
+    // R2
+    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::A)
+      m_W[base_offset + n*5 + 1] = m_k2;
+    else 
+      m_W[base_offset + n*5 + 1] = 0.0f;
+
+    // R3, only stored n==0 since does not depend on a neighbor
+    if (n==0 && m_grid[curr_idx]==species::B)
+      m_W[base_offset + n*5 + 2] = m_k3; 
+    else 
+      m_W[base_offset + n*5 + 2] = 0.0f;
+
+    // R4
+    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
+      m_W[base_offset + n*5 + 3] = m_d1;
+    else 
+      m_W[base_offset + n*5 + 3] = 0.0f;
+
+    // R5
+    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::Null)
+      m_W[base_offset + n*5 + 4] = m_d2;
+    else 
+      m_W[base_offset + n*5 + 4] = 0.0f;
+  }
+}
+
 void Simulation::compute_W(){
   for (int i=0;i<m_n_rows;i++){
     for (int j=0;j<m_n_cols;j++){
-      int curr_idx = j + i*m_n_cols;
-
-      // Periodic boundary conditions
-      int curr_nn_up;
-      if (i-1>=0)
-        curr_nn_up = j + (i-1)*m_n_cols;
-      else
-        curr_nn_up = j + (m_n_rows-1)*m_n_cols;
-
-      int curr_nn_down;
-      if (i+1<m_n_rows)
-        curr_nn_down = j + (i+1)*m_n_cols;
-      else
-        curr_nn_down = j + (0)*m_n_cols;
-
-      int curr_nn_left;
-      if (j-1>=0)
-        curr_nn_left = (j-1) + i*m_n_cols;
-      else
-        curr_nn_left = (m_n_cols-1) + i*m_n_cols;
-      
-      int curr_nn_right;
-      if (j+1<m_n_cols)
-        curr_nn_right = (j+1) + i*m_n_cols;
-      else
-        curr_nn_right = 0 + i*m_n_cols;
-
-      // Each lattice site has 20 possible reactions (4 nearest neighbors, 5 possible reactions with a nearest neighbor)
-      int base_offset = 20 * curr_idx; 
-      std::vector<int> nn{curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right};
-      for (int n=0;n<4;++n){
-        int nn_idx = nn[n];
-
-        // R1
-        if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
-          m_W[base_offset + n*5 + 0] = m_k1;
-        else 
-          m_W[base_offset + n*5 + 0] = 0.0f;
-
-        // R2
-        if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::A)
-          m_W[base_offset + n*5 + 1] = m_k2;
-        else 
-          m_W[base_offset + n*5 + 1] = 0.0f;
-
-        // R3, only stored n==0 since does not depend on a neighbor
-        if (n==0 && m_grid[curr_idx]==species::B)
-          m_W[base_offset + n*5 + 2] = m_k3; 
-        else 
-          m_W[base_offset + n*5 + 2] = 0.0f;
-
-        // R4
-        if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
-          m_W[base_offset + n*5 + 3] = m_d1;
-        else 
-          m_W[base_offset + n*5 + 3] = 0.0f;
-
-        // R5
-        if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::Null)
-          m_W[base_offset + n*5 + 4] = m_d2;
-        else 
-          m_W[base_offset + n*5 + 4] = 0.0f;
-      }
+      compute_W_single_site(i,j);
     }
   }
+}
+
+void Simulation::handle_site_change(int row, int col){
+
 }
 
 void Simulation::compute_reaction(){  
@@ -238,8 +250,8 @@ void Simulation::compute_reaction(){
   }
   }
 
-  printf("Reaction R%d occured at site (%d,%d) with NN (%d,%d)\n",
-          reaction_specific_idx+1,curr_row,curr_col,nn_row,nn_col);
+  //printf("Reaction R%d occured at site (%d,%d) with NN (%d,%d)\n",
+  //        reaction_specific_idx+1,curr_row,curr_col,nn_row,nn_col);
 
   int nn_idx = nn_col + nn_row * m_n_cols;
   switch (reaction_specific_idx){

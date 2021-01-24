@@ -9,8 +9,8 @@
 
 #include "classes.h"
 
-const int n_rows = 4;
-const int n_cols = 4;
+const int n_rows = 32;
+const int n_cols = 256;
 int iterations = 0;
 time_t t;
 
@@ -132,7 +132,7 @@ int main()
 #endif
 
   Example demo;
-  if (demo.Construct(n_rows, n_cols, 20, 20))
+  if (demo.Construct(n_cols, n_rows, 20, 20))
     demo.Start();
   return 0;
 
