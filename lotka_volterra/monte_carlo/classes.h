@@ -135,8 +135,6 @@ void Simulation::debug_print_W(){
       std::cout << std::endl;
 
   }
-  
-
 }
 
 float Simulation::step(){
