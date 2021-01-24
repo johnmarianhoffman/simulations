@@ -1,0 +1,10 @@
+cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
+project (LV_KMC)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS "-pthread -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
+file( GLOB SOURCES *.cpp )
+add_executable(LV_KMC ${SOURCES})
