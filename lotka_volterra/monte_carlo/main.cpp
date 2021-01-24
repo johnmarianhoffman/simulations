@@ -9,8 +9,8 @@
 
 #include "classes.h"
 
-const int n_rows = 128;
-const int n_cols = 128;
+const int n_rows = 512;
+const int n_cols = 512;
 int iterations = 0;
 time_t t;
 
