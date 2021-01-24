@@ -5,10 +5,11 @@ public: // methods
   Simulation(){};
   ~Simulation(){};
   
+  void set_grid(int row, int col, int val);
   void initialize(int n_rows, int n_cols);
   void set_reaction_rates(float k1, float k2, float k3, float d1, float d2);
   float step();
-
+  void refresh();
   std::vector<int> get_int_grid();
 
 private: // methods
@@ -30,6 +31,14 @@ private: // properties
   std::vector<float> m_W_cumulative;
 
 };
+
+void Simulation::refresh(){
+  compute_W();
+}
+
+void Simulation::set_grid(int row, int col, int val){
+  m_grid[col + row*m_n_cols] = (species)val;
+}
 
 void Simulation::initialize(int n_rows, int n_cols){
   m_n_rows       = n_rows;

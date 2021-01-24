@@ -43,11 +43,25 @@ public:
     if (GetKey(olc::Key::SPACE).bPressed)
       m_is_playing = !m_is_playing;
 
-    if (GetKey(olc::Key::F).bHeld)
-      delay = std::max(0,delay-1);
-
     if (GetKey(olc::Key::S).bHeld)
-      delay = std::max(0,delay+1);
+      m_simulation.step();      
+
+    if (GetKey(olc::Key::K1).bPressed)
+      currently_drawing = 1;
+
+    if (GetKey(olc::Key::K2).bPressed)
+      currently_drawing = 2;
+
+    if (GetKey(olc::Key::K3).bPressed)
+      currently_drawing = 0;      
+
+    if (GetMouse(0).bHeld){
+      olc::vi2d mouse_pos = GetMousePos();
+      m_simulation.set_grid(mouse_pos.y,mouse_pos.x,currently_drawing);
+    }
+    
+    if (GetMouse(0).bReleased)
+      m_simulation.refresh();
 
     // Simulation step
     if (m_is_playing){
@@ -99,8 +113,8 @@ private:
   int delay = 5;
   float render_timer = 0.0f;
   int simulation_step_counter = 0;
-
   float simulation_time_step = 0.0f;
+  int currently_drawing = 1;
   
   Simulation m_simulation;
 };
