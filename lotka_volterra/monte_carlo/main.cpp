@@ -9,8 +9,8 @@
 
 #include "classes.h"
 
-const int n_rows = 32;
-const int n_cols = 256;
+const int n_rows = 4;
+const int n_cols = 4;
 int iterations = 0;
 time_t t;
 
@@ -43,7 +43,7 @@ public:
     if (GetKey(olc::Key::SPACE).bPressed)
       m_is_playing = !m_is_playing;
 
-    if (GetKey(olc::Key::S).bHeld)
+    if (GetKey(olc::Key::S).bPressed)
       m_simulation.step();      
 
     if (GetKey(olc::Key::K1).bPressed)
@@ -88,7 +88,7 @@ public:
   
 private:
   void render(float fElapsedTime,int simulation_steps){
-    Clear(olc::Pixel(81,81,81));
+    Clear(olc::Pixel(10,10,10));
 
     std::vector<int> current_state = m_simulation.get_int_grid();
     for (int i=0;i<n_rows;i++){
@@ -101,7 +101,7 @@ private:
       }
     }
 
-    DrawString(5,5, "Simulation time step: " + std::to_string(simulation_time_step) + "s", olc::WHITE, 1);
+    //DrawString(5,5, "Simulation time step: " + std::to_string(simulation_time_step) + "s", olc::WHITE, 1);
     //DrawString(5,5, "Frame time:       " + std::to_string(fElapsedTime) + "s", olc::WHITE, 1);
     //DrawString(5,20,"Simulation steps: " + std::to_string(simulation_steps), olc::WHITE, 1);
 
@@ -132,7 +132,7 @@ int main()
 #endif
 
   Example demo;
-  if (demo.Construct(n_cols, n_rows, xScale*3, yScale*3))
+  if (demo.Construct(n_rows, n_cols, 20, 20))
     demo.Start();
   return 0;
 

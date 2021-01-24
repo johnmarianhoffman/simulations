@@ -62,18 +62,18 @@ void Simulation::initialize(int n_rows, int n_cols){
   //    m_grid[i] = species::B;
   //}
   
-  for (int i=0; i<m_n_rows * m_n_cols;i++){
-    if (i%m_n_cols==0 ||
-        i%m_n_cols==1)
-        //i%m_n_cols==2 ||
-        //i%m_n_cols==3 ||
-        //i%m_n_cols==4 )
-      m_grid[i] = species::B;
+  // for (int i=0; i<m_n_rows * m_n_cols;i++){
+  //   if (i%m_n_cols==0 ||
+  //       i%m_n_cols==1)
+  //       //i%m_n_cols==2 ||
+  //       //i%m_n_cols==3 ||
+  //       //i%m_n_cols==4 )
+  //     m_grid[i] = species::B;
 
-    if (i%m_n_cols==2 ||
-        i%m_n_cols==3)
-      m_grid[i] = species::A;
-  }
+  //   if (i%m_n_cols==2 ||
+  //       i%m_n_cols==3)
+  //     m_grid[i] = species::A;
+  // }
 }
 
 void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, float d2){
@@ -114,7 +114,7 @@ void Simulation::compute_W(){
         curr_nn_down = j + (0)*m_n_cols;
 
       int curr_nn_left;
-      if (j-1>0)
+      if (j-1>=0)
         curr_nn_left = (j-1) + i*m_n_cols;
       else
         curr_nn_left = (m_n_cols-1) + i*m_n_cols;
@@ -181,8 +181,14 @@ void Simulation::compute_reaction(){
   float reaction = W * (float)rand()/(float)RAND_MAX;
 
   // Determine which reaction occurs
-  int reaction_idx = (std::upper_bound(m_W_cumulative.begin(),m_W_cumulative.end(),reaction) - m_W_cumulative.begin()) - 1;
+  auto it = std::upper_bound(m_W_cumulative.begin(),m_W_cumulative.end(),reaction);
+  if (it==m_W_cumulative.end()){
+    std::cout << "No more reactions!" << std::endl;
+    return;
+  }
 
+  int reaction_idx = (it - m_W_cumulative.begin()) - 1;
+  
   // Translate the reaction idx into what actually happened and where
   int reaction_site_idx = reaction_idx/20; // Grid idx of the reaction that occured
   int reaction_nn_idx = (reaction_idx/5)%4; // Produce a number between 0 and 3
@@ -232,6 +238,9 @@ void Simulation::compute_reaction(){
   }
   }
 
+  printf("Reaction R%d occured at site (%d,%d) with NN (%d,%d)\n",
+          reaction_specific_idx+1,curr_row,curr_col,nn_row,nn_col);
+
   int nn_idx = nn_col + nn_row * m_n_cols;
   switch (reaction_specific_idx){
 
@@ -256,7 +265,7 @@ void Simulation::compute_reaction(){
     break;
   }
 
-  case 4:{ // R4
+  case 4:{ // R5
     m_grid[reaction_site_idx] = species::Null;
     m_grid[nn_idx] = species::B;
     break;
