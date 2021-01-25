@@ -9,10 +9,12 @@
 
 #include "classes.h"
 
-const int n_rows = 512;
-const int n_cols = 512;
+int n_rows = 1024;
+int n_cols = 1024;
 int iterations = 0;
 time_t t;
+
+float scale = 1.0;
 
 // Override base class with your custom functionality
 class Example : public olc::PixelGameEngine
@@ -27,7 +29,7 @@ public:
 public:
   bool OnUserCreate() override
   {
-    m_simulation.set_reaction_rates(.49f,0.5f,0.02f,0.0f,0.0f);
+    m_simulation.set_reaction_rates(0.5f, 0.5f, 0.085f, 0.0f, 0.0f);
     m_simulation.initialize(n_rows,n_cols);
     render(0.0f,0);
     return true;
@@ -83,7 +85,6 @@ public:
     }
 
     // Render HUD (want to call every single frame)
-    float scale = 0.5;
     DrawStringDecal(olc::vf2d(0,0),  "Time (accumulate):       " + std::to_string(m_simulation.get_accumulate_time()), olc::WHITE, olc::vf2d(scale,scale));
     DrawStringDecal(olc::vf2d(0,7),  "Time (reaction search):  " + std::to_string(m_simulation.get_reaction_search_time()), olc::WHITE, olc::vf2d(scale,scale));
     DrawStringDecal(olc::vf2d(0,14), "Time (execute reaction): " + std::to_string(m_simulation.get_execute_reaction_time()), olc::WHITE, olc::vf2d(scale,scale));
@@ -122,8 +123,15 @@ private:
   Simulation m_simulation;
 };
 
-int main()
+int main(int argc, char ** argv)
 {
+
+  if (argc>1){
+    n_rows = std::atoi(argv[1]);
+    n_cols = std::atoi(argv[2]);
+    scale = std::atof(argv[3]);
+  }
+  
 
   float xScale = 1.0f, yScale = 1.0f;
 

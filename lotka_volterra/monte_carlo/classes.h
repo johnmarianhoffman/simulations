@@ -99,19 +99,31 @@ void Simulation::initialize(int n_rows, int n_cols){
   //  if (rand()%3==1)
   //    m_grid[i] = species::B;
   //}
-  
-   for (int i=0; i<m_n_rows * m_n_cols;i++){
-     if (i%m_n_cols==0 ||
-         i%m_n_cols==1)
-         //i%m_n_cols==2 ||
-         //i%m_n_cols==3 ||
-         //i%m_n_cols==4 )
-       m_grid[i] = species::B;
 
-     if (i%m_n_cols==2 ||
-         i%m_n_cols==3)
-       m_grid[i] = species::A;
-   }
+  // Pulse
+  //for (int i=0; i<m_n_rows * m_n_cols;i++){
+  //  if (i%m_n_cols==0 ||
+  //      i%m_n_cols==1)
+  //    //i%m_n_cols==2 ||
+  //    //i%m_n_cols==3 ||
+  //    //i%m_n_cols==4 )
+  //    m_grid[i] = species::B;
+  //
+  //  if (i%m_n_cols==2 ||
+  //      i%m_n_cols==3)
+  //    m_grid[i] = species::A;
+  //}
+
+  // Spiral Wave
+  for (int i=0; i<m_n_rows * m_n_cols;i++){
+    if (i>(m_n_rows/2*m_n_cols) && (i%m_n_cols == m_n_cols/2 || i%m_n_cols == m_n_cols/2 + 1) )
+      m_grid[i] = species::B;
+
+    if (i>(m_n_rows/2*m_n_cols) && (i%m_n_cols == m_n_cols/2+2 || i%m_n_cols == m_n_cols/2 + 3) )
+      m_grid[i] = species::A;
+
+  }
+  
 
    compute_W();
 }
