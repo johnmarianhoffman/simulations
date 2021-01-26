@@ -3,6 +3,8 @@
 #include <ratio>
 #include <numeric>
 
+#include "boundary_conditions.h"
+
 class Timer{
 public:
   Timer(){};
