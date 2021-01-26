@@ -1,9 +1,9 @@
-class a081e536ec67{
+class de3907736496{
 
     constructor(){
-        this.canvas = document.getElementById('a081e536ec67');
-        this.startStopButton = document.getElementById('startStop_a081e536ec67');
-        this.stepButton = document.getElementById('step_a081e536ec67');
+        this.canvas = document.getElementById('de3907736496');
+        this.startStopButton = document.getElementById('startStop_de3907736496');
+        this.stepButton = document.getElementById('step_de3907736496');
         this.ctx = this.canvas.getContext('2d');
 
         this.resolution = 3;
@@ -26,17 +26,10 @@ class a081e536ec67{
         this.c = 0.1;
         this.d = 0.5;
 
-        this.redraw = true;
-        
+        this.redraw = true;        
     }
 
     initGrid(default_value){
-        // Allocate the prey grid
-        //this.grid = new Array(this.rows).fill(null);
-        //for (let i=0; i<this.grid.length; i++){
-        //    this.grid[i] = new Array(this.cols).fill(null).map(() => Math.floor(2.0*Math.random()));
-        //}
-
         var grid = new Array(this.rows).fill(null);
         for (let i=0; i<grid.length; i++){
             grid[i] = new Array(this.cols).fill(null).map(() => Math.floor(default_value));
@@ -54,7 +47,7 @@ class a081e536ec67{
                 
                 this.ctx.beginPath();
                 this.ctx.strokeStyle = '#8e8e8e';
-                this.ctx.fillStyle = '#' + '00' + this.int_to_hex((predator_pop/this.carrying_capacity_predator)*255)  + this.int_to_hex((prey_pop/this.carrying_capacity_prey)*255);
+                this.ctx.fillStyle = this.getColor(prey_pop,predator_pop);
                 this.ctx.rect(c*this.resolution,r*this.resolution,this.resolution,this.resolution);
                 this.ctx.fill();
                 
@@ -62,6 +55,37 @@ class a081e536ec67{
         }
     }
 
+    getColor(prey_pop, predator_pop){
+        let r_prey = 121;
+        let g_prey = 224;
+        let b_prey = 136;
+
+        let r_predator = 224;
+        let g_predator = 133;
+        let b_predator = 121;
+
+        let factor = (prey_pop/this.carrying_capacity_prey);
+        r_prey *= factor;
+        g_prey *= factor;
+        b_prey *= factor;
+
+        factor = (predator_pop/this.carrying_capacity_predator);
+        r_predator *= factor;
+        g_predator *= factor;
+        b_predator *= factor;
+
+        //let r_blend = 0.5*r_prey + 0.5*r_predator;
+        //let g_blend = 0.5*g_prey + 0.5*g_predator;
+        //let b_blend = 0.5*b_prey + 0.5*b_predator;
+
+        let r_blend = Math.min(255,r_prey + r_predator);
+        let g_blend = Math.min(255,g_prey + g_predator);
+        let b_blend = Math.min(255,b_prey + b_predator);
+        
+        return '#' +  this.int_to_hex(r_blend) + this.int_to_hex(g_blend) + this.int_to_hex(b_blend);
+    }
+    
+    
     reset(){
         // Allocate the population grids
         this.g_predator = this.initGrid(0.0);
@@ -197,5 +221,5 @@ class a081e536ec67{
     }
 }
 
-let instance_a081e536ec67 = new a081e536ec67();
-instance_a081e536ec67.reset();
+let instance_de3907736496 = new de3907736496();
+instance_de3907736496.reset();
