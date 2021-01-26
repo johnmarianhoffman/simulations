@@ -37,6 +37,7 @@ public: // methods
   float step();
   void refresh();
   int get_grid(int row, int col);
+  void set_boundary_conditions(BoundaryConditions::type configuration){m_boundary_conditions.set_boundary_conditions(configuration);};
 
   float get_accumulate_time(){return m_time_accumulate;}
   float get_reaction_search_time(){return m_time_reaction_search;}
@@ -53,6 +54,8 @@ private: // methods
   
 private: // properties
   enum class species{Null,A,B};
+
+  BoundaryConditions m_boundary_conditions;
 
   bool m_reaction_rates_are_set = false;
   
@@ -120,10 +123,10 @@ void Simulation::initialize(int n_rows, int n_cols){
   for (int i=0; i<m_n_rows * m_n_cols;i++){
     if (i>(m_n_rows/2*m_n_cols) && (i%m_n_cols == m_n_cols/2 || i%m_n_cols == m_n_cols/2 + 1) )
       m_grid[i] = species::B;
-
+  
     if (i>(m_n_rows/2*m_n_cols) && (i%m_n_cols == m_n_cols/2+2 || i%m_n_cols == m_n_cols/2 + 3) )
       m_grid[i] = species::A;
-
+  
   }
   
 
@@ -166,45 +169,34 @@ void Simulation::compute_W_single_site(int row, int col){
   int j = col;
   int curr_idx = j + i*m_n_cols;
 
-  // Periodic boundary conditions
-  int curr_nn_up;
-  if (i-1>=0)
-    curr_nn_up = j + (i-1)*m_n_cols;
-  else
-    curr_nn_up = j + (m_n_rows-1)*m_n_cols;
-
-  int curr_nn_down;
-  if (i+1<m_n_rows)
-    curr_nn_down = j + (i+1)*m_n_cols;
-  else
-    curr_nn_down = j + (0)*m_n_cols;
-
-  int curr_nn_left;
-  if (j-1>=0)
-    curr_nn_left = (j-1) + i*m_n_cols;
-  else
-    curr_nn_left = (m_n_cols-1) + i*m_n_cols;
-      
-  int curr_nn_right;
-  if (j+1<m_n_cols)
-    curr_nn_right = (j+1) + i*m_n_cols;
-  else
-    curr_nn_right = 0 + i*m_n_cols;
-
+  // Handle boundary conditions
+  int curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right;
+  int nn_row, nn_col;
+  BoundaryConditions::result r_up = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::up);
+  curr_nn_up = nn_col + nn_row * m_n_cols;
+  BoundaryConditions::result r_down = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::down);
+  curr_nn_down = nn_col + nn_row * m_n_cols;
+  BoundaryConditions::result r_left = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::left);
+  curr_nn_left = nn_col + nn_row * m_n_cols;
+  BoundaryConditions::result r_right = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::right);
+  curr_nn_right = nn_col + nn_row * m_n_cols;
+  
   // Each lattice site has 20 possible reactions (4 nearest neighbors, 5 possible reactions with a nearest neighbor)
   int base_offset = 20 * curr_idx; 
   std::vector<int> nn{curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right};
+  std::vector<BoundaryConditions::result> nn_result{r_up, r_down, r_left, r_right};
   for (int n=0;n<4;++n){
+    BoundaryConditions::result r = nn_result[n];
     int nn_idx = nn[n];
 
     // R1
-    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
+    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null && r==BoundaryConditions::result::valid)
       m_W[base_offset + n*5 + 0] = m_k1;
     else 
       m_W[base_offset + n*5 + 0] = 0.0f;
 
     // R2
-    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::A)
+    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::A && r==BoundaryConditions::result::valid)
       m_W[base_offset + n*5 + 1] = m_k2;
     else 
       m_W[base_offset + n*5 + 1] = 0.0f;
@@ -216,13 +208,13 @@ void Simulation::compute_W_single_site(int row, int col){
       m_W[base_offset + n*5 + 2] = 0.0f;
 
     // R4
-    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null)
+    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null && r==BoundaryConditions::result::valid)
       m_W[base_offset + n*5 + 3] = m_d1;
     else 
       m_W[base_offset + n*5 + 3] = 0.0f;
 
     // R5
-    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::Null)
+    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::Null && r==BoundaryConditions::result::valid)
       m_W[base_offset + n*5 + 4] = m_d2;
     else 
       m_W[base_offset + n*5 + 4] = 0.0f;
@@ -246,42 +238,22 @@ void Simulation::handle_site_change(int row, int col){
 
   compute_W_single_site(row,col);
 
-  // Up
   int nn_row, nn_col;
-  if (row-1>=0)
-    nn_row = row-1;
-  else
-    nn_row = m_n_rows - 1;
-  nn_col = col;
-
-  compute_W_single_site(nn_row,nn_col);
-
-  // Down
-  if (row+1<m_n_rows)
-    nn_row = row+1;
-  else
-    nn_row = 0;
-  nn_col = col;
-
-  compute_W_single_site(nn_row,nn_col);
-
-  // Left
-  if (col-1>=0)
-    nn_col = col-1;
-  else
-    nn_col = m_n_cols - 1;
-  nn_row = row;
-
-  compute_W_single_site(nn_row,nn_col);
+  BoundaryConditions::result r_up    = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::up);
+  if (r_up==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
   
-  // Right
-  if (col+1<m_n_cols)
-    nn_col = col+1;
-  else
-    nn_col = 0;
-  nn_row = row;
-
-  compute_W_single_site(nn_row,nn_col);
+  BoundaryConditions::result r_down  = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::down);
+  if (r_down==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
+  
+  BoundaryConditions::result r_left  = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::left);
+  if (r_left==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
+  
+  BoundaryConditions::result r_right = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::right);
+  if (r_right==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
   
 }
 
