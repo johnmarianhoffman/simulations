@@ -29,9 +29,10 @@ public:
 public:
   bool OnUserCreate() override
   {
+    m_simulation.set_boundary_conditions(BoundaryConditions::type::non_periodic);
     m_simulation.set_reaction_rates(0.5f, 0.5f, 0.06f, 0.0f, 0.0f);
     m_simulation.initialize(n_rows,n_cols);
-    m_simulation.set_boundary_conditions(BoundaryConditions::type::non_periodic);
+    
     render(0.0f,0);
     return true;
   }

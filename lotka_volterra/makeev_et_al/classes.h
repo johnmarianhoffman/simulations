@@ -37,7 +37,7 @@ public: // methods
   float step();
   void refresh();
   int get_grid(int row, int col);
-  void set_boundary_conditions(BoundaryConditions::type configuration){m_boundary_conditions.set_boundary_conditions(configuration);};
+  void set_boundary_conditions(BoundaryConditions::type configuration);
 
   float get_accumulate_time(){return m_time_accumulate;}
   float get_reaction_search_time(){return m_time_reaction_search;}
@@ -58,6 +58,8 @@ private: // properties
   BoundaryConditions m_boundary_conditions;
 
   bool m_reaction_rates_are_set = false;
+  bool m_is_initialized = false;
+  bool m_boundary_conditions_are_set = false;
   
   float m_k1, m_k2, m_k3, m_d1, m_d2;
   int m_n_rows;
@@ -82,6 +84,13 @@ void Simulation::refresh(){
 void Simulation::set_grid(int row, int col, int val){
   m_grid[col + row*m_n_cols] = (species)val;
 }
+
+void Simulation::set_boundary_conditions(BoundaryConditions::type configuration){
+  if (m_is_initialized)
+    std::cout << "WARNING: Boundary conditions are being set *after* model has already been initialized.  This can result in unexpected behavior." << std::endl;
+  m_boundary_conditions.set_boundary_conditions(configuration);
+  m_boundary_conditions_are_set = true;
+};
 
 void Simulation::initialize(int n_rows, int n_cols){
   m_n_rows       = n_rows;
@@ -128,9 +137,10 @@ void Simulation::initialize(int n_rows, int n_cols){
       m_grid[i] = species::A;
   
   }
-  
 
    compute_W();
+
+   m_is_initialized = true;
 }
 
 void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, float d2){
