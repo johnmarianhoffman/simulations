@@ -1,197 +1,408 @@
-const float a = 1.001; // prey growth
-const float b = 0.4; // prey death
-const float c = 0.1; // pred growth
-const float d = 0.5; // pred death
+#include <algorithm>
+#include <chrono>
+#include <ratio>
+#include <numeric>
 
-const float carrying_capacity_prey = 30.0f;
-const float carrying_capacity_pred = 5.0f;
+#include "boundary_conditions.h"
 
-float delta_t = 0.01;
-
-class cell {
-
-  float pop_prey = 0.0f;
-  float pop_pred = 0.0f;
-
+class Timer{
 public:
+  Timer(){};
+  ~Timer(){};
 
-  void update(){
-    
-    float delta_prey = a*pop_prey          - b*pop_prey*pop_pred;
-    float delta_pred = c*pop_prey*pop_pred - d*pop_pred;
-    
-    pop_prey += delta_prey * delta_t;
-    pop_pred += delta_pred * delta_t;
-
-    pop_prey = std::max(0.0f, pop_prey);
-    pop_pred = std::max(0.0f, pop_pred);
-    
+  void tic(){
+    m_start = std::chrono::high_resolution_clock::now();
   }
 
-  float migrate_prey(){
-    float migrating = std::max(0.0f, pop_prey - carrying_capacity_prey);
-    return migrating;
+  float toc(std::string event_name){
+    m_stop = std::chrono::high_resolution_clock::now();
+    //std::cout << event_name <<": " << std::chrono::duration<float,std::milli>(m_stop-m_start).count() << "ms" << std::endl;
+    return std::chrono::duration<float,std::milli>(m_stop-m_start).count();
   }
 
-  float migrate_pred(){
-    float migrating = std::max(0.0f, pop_pred - carrying_capacity_pred);
-    return migrating;
-  }
+private:
+  std::chrono::high_resolution_clock::time_point m_start;
+  std::chrono::high_resolution_clock::time_point m_stop;
 
-  float get_prey(){return pop_prey;}
-  float get_pred(){return pop_pred;}
-
-  void adjust_populations(float pred_adjust, float prey_adjust){
-    // Add incoming values, truncate anything above carrying capacity
-    pop_prey = std::min(pop_prey + prey_adjust, carrying_capacity_prey);
-    pop_pred = std::min(pop_pred + pred_adjust, carrying_capacity_pred);
-  }
-
-  void set_predators(float pop){pop_pred = pop;}
-  void set_prey(float pop){pop_prey = pop;}
-
-  olc::Pixel get_color(){
-    return olc::Pixel(255*std::min(pop_pred / carrying_capacity_pred,1.0f), 0, 255* std::min(pop_prey / carrying_capacity_prey, 1.0f ));
-  }
 };
 
-class environment {
-private:
+class Simulation{
+public: // methods
+  Simulation(){};
+  ~Simulation(){};
+  
+  void set_grid(int row, int col, int val);
+  void initialize(int n_rows, int n_cols);
+  void set_reaction_rates(float k1, float k2, float k3, float d1, float d2);
+  float step();
+  void refresh();
+  int get_grid(int row, int col);
+  void set_boundary_conditions(BoundaryConditions::type configuration);
+
+  float get_accumulate_time(){return m_time_accumulate;}
+  float get_reaction_search_time(){return m_time_reaction_search;}
+  float get_execute_reaction_time(){return m_time_execute_reaction;}
+  float get_compute_W_time(){return m_time_compute_W;}
+  
+private: // methods
+  void compute_W();
+  void compute_W_single_site(int row, int col);
+  void compute_reaction();
+  void handle_site_change(int row, int col);
+
+  void debug_print_W();
+  
+private: // properties
+  enum class species{Null,A,B};
+
+  BoundaryConditions m_boundary_conditions;
+
+  bool m_reaction_rates_are_set = false;
+  bool m_is_initialized = false;
+  bool m_boundary_conditions_are_set = false;
+  
+  float m_k1, m_k2, m_k3, m_d1, m_d2;
   int m_n_rows;
   int m_n_cols;
 
-  std::vector<cell> m_world;
-  
-public:
-  void initialize(int n_rows, int n_cols){
-    m_n_rows = n_rows;
-    m_n_cols = n_cols;
+  std::vector<species> m_grid;
+  float m_W_sum;
+  std::vector<float> m_W;
+  std::vector<float> m_W_cumulative;
 
-    m_world.resize(m_n_rows*m_n_cols);
-  }
+  float m_time_accumulate       = 0.0f;
+  float m_time_reaction_search  = 0.0f;
+  float m_time_execute_reaction = 0.0f;
+  float m_time_compute_W        = 0.0f;
 
-  std::vector<cell> get_world(){return m_world;}
-
-  void initial_conditions_one_predator(){
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-        m_world[j+i*m_n_cols].set_prey(10.0f);
-
-        if (i==m_n_rows/2 && j==m_n_cols/2)
-          m_world[j+i*m_n_cols].set_predators(10.0f);
-      }
-    }    
-  }
-
-  void initial_conditions_line(){
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-        m_world[j+i*m_n_cols].set_prey(10.0f);
-
-        if (i==0)
-          m_world[j+i*m_n_cols].set_predators(10.0f);
-      }
-    }
-  }
-
-  void initial_conditions_two_colonies(){
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-        m_world[j+i*m_n_cols].set_prey(10.0f);
-
-        if (i==0 && j==0)
-          m_world[j+i*m_n_cols].set_predators(10.0f);
-
-        if (i==m_n_rows/2 && j==m_n_cols/2)
-          m_world[j+i*m_n_cols].set_predators(1.0f);
-      }
-    }
-  }
-
-  void initial_conditions_random_colonies(int n_colonies){
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-        m_world[j+i*m_n_cols].set_prey(10.0f);
-      }
-    }
-
-    for (int ii=0;ii<n_colonies;ii++){
-      int row = rand()%m_n_rows;
-      int col = rand()%m_n_cols;
-      
-      m_world[col+row*m_n_cols].set_prey((float)(rand()%30));
-      m_world[col+row*m_n_cols].set_predators((float)(rand()%20));
-    }
-  }
-
-  void initial_conditions_binary_random(){
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-
-        switch (rand()%2){
-        case 0:{
-          m_world[j+i*m_n_cols].set_prey(10.0f);
-          break;
-        }
-        case 1:{
-          m_world[j+i*m_n_cols].set_predators(10.0f);
-          m_world[j+i*m_n_cols].set_prey(10.0f);
-          break;
-        }
-        }
-      }
-    }    
-  }
-
-  void update(){
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-        m_world[j+i*m_n_cols].update();
-      }
-    }
-  }
-
-  void migrate(){
-
-    // Calculate how many incoming pred/prey to each cell
-    std::vector<float> migrating_pred(m_n_rows*m_n_cols, 0.0f);
-    std::vector<float> migrating_prey(m_n_rows*m_n_cols, 0.0f);
-
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-
-        for (int ii=-1;ii<=1;ii++){
-          for (int jj=-1;jj<=1;jj++){
-
-            int curr_row = i+ii;
-            int curr_col = j+jj;
-
-            if (curr_row < 0 || curr_row == m_n_rows)
-              continue;
-
-            if (curr_col < 0 || curr_col == m_n_cols)
-              continue;
-
-            migrating_prey[j + i*m_n_cols] += m_world[curr_col + curr_row*m_n_cols].migrate_prey();
-            migrating_pred[j + i*m_n_cols] += m_world[curr_col + curr_row*m_n_cols].migrate_pred();
-            
-          }
-        }
-
-        migrating_prey[j + i*m_n_cols] /= 8.0f;
-        migrating_pred[j + i*m_n_cols] /= 8.0f;
-        
-      }
-    }
-
-    // Adjust current totals in the world (add incoming, truncate anything over carrying capacity)
-    for (int i=0;i<m_n_rows;i++){
-      for (int j=0;j<m_n_cols;j++){
-        float incoming_pred = migrating_pred[j + i*m_n_cols];
-        float incoming_prey = migrating_prey[j + i*m_n_cols];
-        m_world[j + i*m_n_cols].adjust_populations(incoming_pred,incoming_prey);
-      }
-    }
-
-  }
 };
+
+void Simulation::refresh(){
+  compute_W();
+}
+
+void Simulation::set_grid(int row, int col, int val){
+  m_grid[col + row*m_n_cols] = (species)val;
+}
+
+void Simulation::set_boundary_conditions(BoundaryConditions::type configuration){
+  if (m_is_initialized)
+    std::cout << "WARNING: Boundary conditions are being set *after* model has already been initialized.  This can result in unexpected behavior." << std::endl;
+  m_boundary_conditions.set_boundary_conditions(configuration);
+  m_boundary_conditions_are_set = true;
+};
+
+void Simulation::initialize(int n_rows, int n_cols){
+  m_n_rows       = n_rows;
+  m_n_cols       = n_cols;
+  m_grid         = std::vector<species>(m_n_rows * m_n_cols, species::Null);
+  m_W            = std::vector<float>(m_n_rows * m_n_cols * 20 , 0.0f);
+  m_W_cumulative = std::vector<float>(m_n_rows * m_n_cols * 20 , 0.0f);
+  
+  // Random initial conditions
+  // 0 -> Empty grid space
+  // 1 -> Occupied by A
+  // 2 -> Occupied by B
+  //for (int i=0; i<m_n_rows * m_n_cols;i++){
+  //  m_grid[i] = (species)(rand()%3);
+  //  
+  //}
+
+  // Only predators
+  //for (int i=0; i<m_n_rows * m_n_cols;i++){
+  //  if (rand()%3==1)
+  //    m_grid[i] = species::B;
+  //}
+
+  // Pulse
+  //for (int i=0; i<m_n_rows * m_n_cols;i++){
+  //  if (i%m_n_cols==0 ||
+  //      i%m_n_cols==1)
+  //    //i%m_n_cols==2 ||
+  //    //i%m_n_cols==3 ||
+  //    //i%m_n_cols==4 )
+  //    m_grid[i] = species::B;
+  //
+  //  if (i%m_n_cols==2 ||
+  //      i%m_n_cols==3)
+  //    m_grid[i] = species::A;
+  //}
+
+  // Spiral Wave
+  for (int i=0; i<m_n_rows * m_n_cols;i++){
+    if (i>(m_n_rows/2*m_n_cols) && (i%m_n_cols == m_n_cols/2 || i%m_n_cols == m_n_cols/2 + 1) )
+      m_grid[i] = species::B;
+  
+    if (i>(m_n_rows/2*m_n_cols) && (i%m_n_cols == m_n_cols/2+2 || i%m_n_cols == m_n_cols/2 + 3) )
+      m_grid[i] = species::A;
+  
+  }
+
+   compute_W();
+
+   m_is_initialized = true;
+}
+
+void Simulation::set_reaction_rates(float k1, float k2, float k3, float d1, float d2){
+  m_k1 = k1;
+  m_k2 = k2;
+  m_k3 = k3;
+  m_d1 = d1;
+  m_d2 = d2;
+  m_reaction_rates_are_set = true;
+}
+
+void Simulation::debug_print_W(){
+
+  for (size_t i=0; i<m_W.size();++i){
+    
+    std::cout << std::to_string(m_W[i]) << "  ";
+
+    if (i%5==0)
+      std::cout << std::endl;
+
+  }
+}
+
+float Simulation::step(){
+  if (!m_reaction_rates_are_set)
+    return 0.0;
+
+  //compute_W();
+  compute_reaction();
+  
+  return 1.0f/m_W_sum;
+}
+
+void Simulation::compute_W_single_site(int row, int col){
+  int i = row;
+  int j = col;
+  int curr_idx = j + i*m_n_cols;
+
+  // Handle boundary conditions
+  int curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right;
+  int nn_row, nn_col;
+  BoundaryConditions::result r_up = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::up);
+  curr_nn_up = nn_col + nn_row * m_n_cols;
+  BoundaryConditions::result r_down = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::down);
+  curr_nn_down = nn_col + nn_row * m_n_cols;
+  BoundaryConditions::result r_left = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::left);
+  curr_nn_left = nn_col + nn_row * m_n_cols;
+  BoundaryConditions::result r_right = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::right);
+  curr_nn_right = nn_col + nn_row * m_n_cols;
+  
+  // Each lattice site has 20 possible reactions (4 nearest neighbors, 5 possible reactions with a nearest neighbor)
+  int base_offset = 20 * curr_idx; 
+  std::vector<int> nn{curr_nn_up, curr_nn_down, curr_nn_left, curr_nn_right};
+  std::vector<BoundaryConditions::result> nn_result{r_up, r_down, r_left, r_right};
+  for (int n=0;n<4;++n){
+    BoundaryConditions::result r = nn_result[n];
+    int nn_idx = nn[n];
+
+    // R1
+    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null && r==BoundaryConditions::result::valid)
+      m_W[base_offset + n*5 + 0] = m_k1;
+    else 
+      m_W[base_offset + n*5 + 0] = 0.0f;
+
+    // R2
+    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::A && r==BoundaryConditions::result::valid)
+      m_W[base_offset + n*5 + 1] = m_k2;
+    else 
+      m_W[base_offset + n*5 + 1] = 0.0f;
+
+    // R3, only stored n==0 since does not depend on a neighbor
+    if (n==0 && m_grid[curr_idx]==species::B)
+      m_W[base_offset + n*5 + 2] = m_k3; 
+    else 
+      m_W[base_offset + n*5 + 2] = 0.0f;
+
+    // R4
+    if (m_grid[curr_idx]==species::A && m_grid[nn_idx]==species::Null && r==BoundaryConditions::result::valid)
+      m_W[base_offset + n*5 + 3] = m_d1;
+    else 
+      m_W[base_offset + n*5 + 3] = 0.0f;
+
+    // R5
+    if (m_grid[curr_idx]==species::B && m_grid[nn_idx]==species::Null && r==BoundaryConditions::result::valid)
+      m_W[base_offset + n*5 + 4] = m_d2;
+    else 
+      m_W[base_offset + n*5 + 4] = 0.0f;
+  }
+}
+
+void Simulation::compute_W(){
+  Timer t;
+  t.tic();
+  for (int i=0;i<m_n_rows;i++){
+    for (int j=0;j<m_n_cols;j++){
+      compute_W_single_site(i,j);
+    }
+  }
+  m_time_compute_W = t.toc("Compute W (whole matrix)");
+}
+
+void Simulation::handle_site_change(int row, int col){
+  // This function addresses updating the W matrix for a single site
+  // as well as its nearest neighbors
+
+  compute_W_single_site(row,col);
+
+  int nn_row, nn_col;
+  BoundaryConditions::result r_up    = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::up);
+  if (r_up==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
+  
+  BoundaryConditions::result r_down  = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::down);
+  if (r_down==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
+  
+  BoundaryConditions::result r_left  = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::left);
+  if (r_left==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
+  
+  BoundaryConditions::result r_right = m_boundary_conditions.get_nn_coordinates(row, col, nn_row, nn_col, m_n_rows, m_n_cols, BoundaryConditions::direction::right);
+  if (r_right==BoundaryConditions::result::valid)
+    compute_W_single_site(nn_row,nn_col);
+  
+}
+
+void Simulation::compute_reaction(){
+
+  Timer t;
+  
+  // Compute the cumulative function
+  t.tic();
+  float W = m_W[0];
+  m_W_cumulative[0] = 0.0f;
+  
+  //for (int i=1;i<m_n_rows*m_n_cols*20;i++){
+  //  m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];
+  //  W += m_W[i];
+  //}
+  
+  for (int i=1;i<m_n_rows*m_n_cols*20;i++){  
+    m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];  
+    W += m_W[i];
+  }
+
+  m_W_sum = W;
+  m_time_accumulate = t.toc("Compute cumulative matrix");
+  
+  // Throw our random number
+  float reaction = W * (float)rand()/(float)RAND_MAX;
+
+  // Determine which reaction occurs
+  t.tic();
+  auto it = std::upper_bound(m_W_cumulative.begin(),m_W_cumulative.end(),reaction);
+  if (it==m_W_cumulative.end()){
+    std::cout << "No more reactions!" << std::endl;
+    return;
+  }
+  m_time_reaction_search = t.toc("Find reaction");
+
+  int reaction_idx = (it - m_W_cumulative.begin()) - 1;
+  
+  // Translate the reaction idx into what actually happened and where
+  t.tic();
+  int reaction_site_idx = reaction_idx/20; // Grid idx of the reaction that occured
+  int reaction_nn_idx = (reaction_idx/5)%4; // Produce a number between 0 and 3
+  int reaction_specific_idx = reaction_idx%5; // Produce a number between 0 and 4
+
+  // Invoke reaction 
+  int curr_row = reaction_site_idx/m_n_cols; // grid coordinates
+  int curr_col = reaction_site_idx%m_n_cols; // grid coordinates
+
+  int nn_row;
+  int nn_col;
+  switch (reaction_nn_idx){ // Indices must match how we laid out our matrix in compute_W
+  case 0:{ // up
+    nn_col = curr_col;
+    if ( curr_row-1 >=0 )
+      nn_row = curr_row-1;
+    else
+      nn_row = m_n_rows-1;
+    break;
+  }
+  case 1: { // down 
+    nn_col = curr_col;
+    if ( curr_row + 1 < m_n_rows )
+      nn_row = curr_row + 1;
+    else
+      nn_row = 0;
+    break;
+  }
+  case 2:{// left
+    nn_row = curr_row;
+    if ( curr_col - 1 >= 0 )
+      nn_col = curr_col-1;
+    else
+      nn_col = m_n_cols-1;
+    break;
+  } 
+  case 3:{ // right
+    nn_row = curr_row;
+    if ( curr_col + 1 < m_n_cols )
+      nn_col = curr_col + 1;
+    else
+      nn_col = 0;
+    break;
+  }
+  default:{
+    std::cout << "Something has gone wrong (identifying nearest neighbor)" << std::endl;
+  }
+  }
+
+  //printf("Reaction R%d occured at site (%d,%d) with NN (%d,%d)\n",
+  //        reaction_specific_idx+1,curr_row,curr_col,nn_row,nn_col);
+
+  int nn_idx = nn_col + nn_row * m_n_cols;
+  switch (reaction_specific_idx){
+
+  case 0:{ // R1
+    m_grid[nn_idx] = species::A;
+    handle_site_change(nn_row,nn_col);
+    break;
+  }
+
+  case 1:{ // R2
+    m_grid[nn_idx] = species::B;
+    handle_site_change(nn_row,nn_col);
+    break;
+  }
+
+  case 2:{ // R3
+    m_grid[reaction_site_idx] = species::Null;
+    handle_site_change(curr_row,curr_col);
+    break;
+  }
+
+  case 3:{ // R4
+    m_grid[reaction_site_idx] = species::Null;
+    m_grid[nn_idx] = species::A;
+    
+    handle_site_change(curr_row,curr_col);
+    handle_site_change(nn_row,nn_col);
+    break;
+  }
+
+  case 4:{ // R5
+    m_grid[reaction_site_idx] = species::Null;
+    m_grid[nn_idx] = species::B;
+
+    handle_site_change(curr_row,curr_col);
+    handle_site_change(nn_row,nn_col);
+    break;
+  }
+
+  default:{
+    std::cout << "Something has gone wrong (identifying which reaction occurred)" << std::endl;
+  }
+  }
+  m_time_execute_reaction = t.toc("Execute reaction and update");
+  
+}
+
+int Simulation::get_grid(int row, int col){
+  return (int)m_grid[col + row * m_n_cols];
+}
