@@ -1,6 +1,6 @@
 #include <iostream>
 #include <vector>
-#include "boundary_conditions.h"
+#include "BoundaryConditions.h"
 
 bool check_test_results(std::vector<BoundaryConditions::result> expected_result,
                         std::vector<int> expected_nn_row,

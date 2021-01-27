@@ -7,7 +7,8 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
-#include "classes.h"
+#include "LVSimulation.h"
+#include "MakeevEtAl.h"
 
 int n_rows = 1024;
 int n_cols = 1024;
@@ -29,9 +30,12 @@ public:
 public:
   bool OnUserCreate() override
   {
-    m_simulation.set_boundary_conditions(BoundaryConditions::type::non_periodic);
-    m_simulation.set_reaction_rates(0.5f, 0.5f, 0.06f, 0.0f, 0.0f);
-    m_simulation.initialize(n_rows,n_cols);
+    m_simulation = new MakeevEtAl();
+    
+    m_simulation->set_boundary_conditions(BoundaryConditions::type::non_periodic);
+    m_simulation->set_reaction_rates(0.5f, 0.5f, 0.06f, 0.0f, 0.0f);
+    m_simulation->initialize_grid(n_rows,n_cols);
+    m_simulation->initialize_model();
     
     render(0.0f,0);
     return true;
@@ -40,14 +44,16 @@ public:
   bool OnUserUpdate(float fElapsedTime) override
   {
     // Handle any input
-    if (GetKey(olc::Key::Q).bHeld)
+    if (GetKey(olc::Key::Q).bHeld){
+      delete m_simulation;
       return false;
+    }
 
     if (GetKey(olc::Key::SPACE).bPressed)
       m_is_playing = !m_is_playing;
 
     if (GetKey(olc::Key::S).bPressed)
-      m_simulation.step();      
+      m_simulation->step();      
 
     if (GetKey(olc::Key::K1).bPressed)
       currently_drawing = 1;
@@ -60,16 +66,16 @@ public:
 
     if (GetMouse(0).bHeld){
       olc::vi2d mouse_pos = GetMousePos();
-      m_simulation.set_grid(mouse_pos.y,mouse_pos.x,currently_drawing);
+      m_simulation->set_grid(mouse_pos.y,mouse_pos.x,(LVSimulation::species)currently_drawing);
     }
     
     if (GetMouse(0).bReleased)
-      m_simulation.refresh();
+      m_simulation->refresh();
 
     // Simulation step
     if (m_is_playing){
       ++simulation_step_counter;
-      simulation_time_step = m_simulation.step();
+      m_simulation->step();
     }
     else{
       //m_simulation.refresh();
@@ -87,10 +93,10 @@ public:
     }
 
     // Render HUD (want to call every single frame)
-    DrawStringDecal(olc::vf2d(0,0),  "Time (accumulate):       " + std::to_string(m_simulation.get_accumulate_time()), olc::WHITE, olc::vf2d(scale,scale));
-    DrawStringDecal(olc::vf2d(0,7),  "Time (reaction search):  " + std::to_string(m_simulation.get_reaction_search_time()), olc::WHITE, olc::vf2d(scale,scale));
-    DrawStringDecal(olc::vf2d(0,14), "Time (execute reaction): " + std::to_string(m_simulation.get_execute_reaction_time()), olc::WHITE, olc::vf2d(scale,scale));
-    DrawStringDecal(olc::vf2d(0,21), "Time (compute W):        " + std::to_string(m_simulation.get_compute_W_time()), olc::WHITE, olc::vf2d(scale,scale));
+    //DrawStringDecal(olc::vf2d(0,0),  "Time (accumulate):       " + std::to_string(m_simulation.get_accumulate_time()), olc::WHITE, olc::vf2d(scale,scale));
+    //DrawStringDecal(olc::vf2d(0,7),  "Time (reaction search):  " + std::to_string(m_simulation.get_reaction_search_time()), olc::WHITE, olc::vf2d(scale,scale));
+    //DrawStringDecal(olc::vf2d(0,14), "Time (execute reaction): " + std::to_string(m_simulation.get_execute_reaction_time()), olc::WHITE, olc::vf2d(scale,scale));
+    //DrawStringDecal(olc::vf2d(0,21), "Time (compute W):        " + std::to_string(m_simulation.get_compute_W_time()), olc::WHITE, olc::vf2d(scale,scale));
     
     return true;
   }
@@ -104,9 +110,9 @@ private:
     ///Clear(olc::Pixel(10,10,10));
     for (int i=0;i<n_rows;i++){
       for (int j=0;j<n_cols;j++){
-        if (m_simulation.get_grid(i,j) == 1)
+        if (m_simulation->get_grid(i,j) == LVSimulation::species::A)
           Draw(j,i, olc::Pixel(141,204,136));
-        else if (m_simulation.get_grid(i,j) == 2)
+        else if (m_simulation->get_grid(i,j) == LVSimulation::species::B)
           Draw(j,i, olc::Pixel(209,141,140));
         else 
           Draw(j,i, olc::Pixel(10,10,10));
@@ -122,7 +128,7 @@ private:
   float simulation_time_step = 0.0f;
   int currently_drawing = 1;
   
-  Simulation m_simulation;
+  LVSimulation * m_simulation;
 };
 
 int main(int argc, char ** argv)
