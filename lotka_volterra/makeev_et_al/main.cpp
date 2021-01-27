@@ -29,8 +29,10 @@ public:
 public:
   bool OnUserCreate() override
   {
-    m_simulation.set_reaction_rates(0.5f, 0.5f, 0.085f, 0.0f, 0.0f);
+    m_simulation.set_boundary_conditions(BoundaryConditions::type::non_periodic);
+    m_simulation.set_reaction_rates(0.5f, 0.5f, 0.06f, 0.0f, 0.0f);
     m_simulation.initialize(n_rows,n_cols);
+    
     render(0.0f,0);
     return true;
   }
@@ -132,16 +134,6 @@ int main(int argc, char ** argv)
     scale = std::atof(argv[3]);
   }
   
-
-  float xScale = 1.0f, yScale = 1.0f;
-
-
-#if defined(__GLFW__)
-  glfwInit();
-  glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &xScale, &yScale);
-  glfwTerminate();
-#endif
-
   Example demo;
   bool vsync = false;
   if (demo.Construct(n_cols, n_rows, 20, 20, false, vsync, false))
