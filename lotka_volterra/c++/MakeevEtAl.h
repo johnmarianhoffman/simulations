@@ -2,7 +2,7 @@
 
 #include "LVSimulation.h"
 
-class MakeevEtAl : public LVSimulation{
+class MakeevEtAl : public LVSimulation {
   
   ~MakeevEtAl() override {};
 

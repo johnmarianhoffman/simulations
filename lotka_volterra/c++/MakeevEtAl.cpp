@@ -2,6 +2,7 @@
 #include "MakeevEtAl.h"
 
 #include <algorithm>
+#include <numeric>
 
 void MakeevEtAl::initialize_model() {
   
@@ -14,6 +15,8 @@ void MakeevEtAl::initialize_model() {
 }
 
 void MakeevEtAl::step(){
+  m_timer.tic();
+  
   if (!m_reaction_rates_are_set)
     std::cout << "ERROR: Attempting to step before reaction rates are set!" << std::endl;
 
@@ -21,6 +24,10 @@ void MakeevEtAl::step(){
     std::cout << "ERROR: Attempting to step before simulation is initialized!" << std::endl;
 
   compute_reaction();
+
+  m_time_compute_step = m_timer.toc();
+  m_time_mc_step = 1.0f/m_W_sum;
+  m_time_mc_total += m_time_mc_step;
 }
 void MakeevEtAl::refresh(){
   compute_W();
@@ -100,11 +107,17 @@ void MakeevEtAl::compute_reaction(){
   //  m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];
   //  W += m_W[i];
   //}
+  //Timer t_tmp;
   
-  for (int i=1;i<m_n_rows*m_n_cols*20;i++){  
-    m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];  
-    W += m_W[i];
-  }
+  //t_tmp.tic();
+  std::partial_sum(m_W.begin(),m_W.end(),m_W_cumulative.begin(),std::plus<float>());
+  W = *(m_W_cumulative.end()-1);
+  //t_tmp.toc("PARTIAL_SUM");
+  
+  //for (int i=1;i<m_n_rows*m_n_cols*20;i++){  
+  //  m_W_cumulative[i] = m_W_cumulative[i-1] + m_W[i-1];  
+  //  W += m_W[i];
+  //}
 
   m_W_sum = W;
   
@@ -120,7 +133,7 @@ void MakeevEtAl::compute_reaction(){
   }
   
 
-  int reaction_idx = (it - m_W_cumulative.begin()) - 1;
+  int reaction_idx = (it - m_W_cumulative.begin());
   
   // Translate the reaction idx into what actually happened and where
   

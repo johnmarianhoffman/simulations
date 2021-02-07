@@ -135,3 +135,42 @@ BoundaryConditions::result BoundaryConditions::get_nn_coordinates(int row, int c
 
   return r;
 }
+
+BoundaryConditions::result BoundaryConditions::get_random_nn(int row, int col, int& row_out, int& col_out, const int n_rows, const int n_cols){
+  float rand_op = ((float)rand()/(float)RAND_MAX);
+  if (rand_op < 0.25f)
+    return get_nn_coordinates(row,col,row_out,col_out,n_rows,n_cols,direction::up);
+  else if (rand_op >=0.25f && rand_op < 0.5f)
+    return get_nn_coordinates(row,col,row_out,col_out,n_rows,n_cols,direction::down);
+  else if (rand_op >=0.5f && rand_op < 0.75f)
+    return get_nn_coordinates(row,col,row_out,col_out,n_rows,n_cols,direction::left);
+  else if (rand_op >=0.75f && rand_op <= 1.0f)
+    return get_nn_coordinates(row,col,row_out,col_out,n_rows,n_cols,direction::right);
+  else
+    std::cout << "Something went wrong during random nn generation" << std::endl; 
+}
+
+std::string BoundaryConditions::get_boundary_condition_string(){
+  switch(m_state){
+  case type::periodic:{
+    return "periodic";
+  }
+
+  case type::periodic_horizontal:{
+    return "periodic_horizontal";
+  }
+
+  case type::periodic_vertical:{
+    return "periodic_vertical";
+  }
+
+  case type::non_periodic:{
+    return "non_periodic";
+  }
+
+  default:{
+    return "invalid_state";
+  }
+  }
+  
+}

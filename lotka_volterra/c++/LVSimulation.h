@@ -19,6 +19,8 @@ public:
 
   void set_grid(int row, int col, species s);
   species  get_grid(int row, int col);
+
+  void record_data(std::string output_directory);
   
   virtual void initialize_model() = 0;
   virtual void step() = 0;
@@ -37,8 +39,11 @@ protected:
   int m_n_cols;
 
   std::vector<species> m_grid;
+  Timer m_timer;
 
+public:
   float m_time_compute_step = 0.0f;
   float m_time_mc_step = 0.0f;
-  
+  float m_time_mc_total = 0.0f;
+
 };

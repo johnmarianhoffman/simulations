@@ -11,6 +11,9 @@ public:
 public:
   void set_boundary_conditions(type t);
   result get_nn_coordinates(int row, int col, int& row_out, int& col_out, const int n_rows, const int n_cols, direction dir);
+  result get_random_nn(int row, int col, int& row_out, int& col_out, const int n_rows, const int n_cols);
+
+  std::string get_boundary_condition_string();
     
 private:
   type m_state = type::periodic;
