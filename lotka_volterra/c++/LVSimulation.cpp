@@ -1,10 +1,12 @@
 #include "LVSimulation.h"
 #include "svpng.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <cstring>
 #include <cmath>
+#include <chrono>
 
 void LVSimulation::initialize_grid(int n_rows, int n_cols){
   m_n_rows       = n_rows;
@@ -65,6 +67,29 @@ void LVSimulation::set_boundary_conditions(BoundaryConditions::type configuratio
     std::cout << "WARNING: Boundary conditions are being set *after* model has already been initialized.  This can result in unexpected behavior." << std::endl;
   m_boundary_conditions.set_boundary_conditions(configuration);
   m_boundary_conditions_are_set = true;
+}
+
+void LVSimulation::set_boundary_conditions(std::string s){
+
+  std::cout << "Setting boundary conditions to "<< s << std::endl;
+  
+  if (s=="periodic"){
+    set_boundary_conditions(BoundaryConditions::type::periodic);
+  }
+  else if (s=="non_periodic"){
+    set_boundary_conditions(BoundaryConditions::type::non_periodic);
+  }
+  else if (s=="periodic_horizontal"){
+    set_boundary_conditions(BoundaryConditions::type::periodic_horizontal);
+  }
+  else if (s=="periodic_vertical"){
+    set_boundary_conditions(BoundaryConditions::type::periodic_vertical);
+  }
+  else{
+    std::cout << "ERROR: Invalid boundary conditions string \"" << s << "\"" << std::endl;
+    exit(1);
+  }
+
 }
 
 void LVSimulation::set_grid(int row, int col, species s){
@@ -133,16 +158,25 @@ void LVSimulation::record_data(std::string output_directory){
   std::filesystem::path csv_path = output_path / "lv_kmc_data.csv";
   if (!std::filesystem::exists(csv_path)){
     std::ofstream output_stream(csv_path.c_str(),std::ios::app);
-    output_stream << "time,n_rows,n_cols,boundary_conditions,k1,k2,k3,d1,d2,population_prey,population_predator" << std::endl;
+    output_stream << "time[s],clock_time,n_rows,n_cols,boundary_conditions,k1,k2,k3,d1,d2,population_prey,population_predator,population_total" << std::endl;
   }
-  else{
-    std::ofstream output_stream(csv_path.c_str(),std::ios::app);
+  
+    
+  auto now = std::chrono::system_clock::now();
+  std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+  std::string time_string = std::ctime(&now_time);
+  time_string.erase(std::remove(time_string.begin(), time_string.end(), '\n'), time_string.end());
+  
+    
+  std::ofstream output_stream(csv_path.c_str(),std::ios::app);
 
-    char datastring[4096] = {0};
-    sprintf(datastring,"%.2f, %d, %d, %s, %.05f, %.05f, %.05f, %.05f, %.05f, %d, %d",
-            m_time_mc_total, m_n_rows, m_n_cols, m_boundary_conditions.get_boundary_condition_string().c_str(), m_k1, m_k2, m_k3, m_d1, m_d2, pop_A, pop_B);
-    output_stream << datastring << std::endl;
-    std::cout << datastring << std::endl;
-  }
+  
+  
+  char datastring[4096] = {0};
+  sprintf(datastring,"%.2f, %s, %d, %d, %s, %.05f, %.05f, %.05f, %.05f, %.05f, %d, %d, %d",
+          m_time_mc_total, time_string.c_str() , m_n_rows, m_n_cols, m_boundary_conditions.get_boundary_condition_string().c_str(), m_k1, m_k2, m_k3, m_d1, m_d2, pop_A, pop_B, pop_A + pop_B);
+  output_stream << datastring << std::endl;
+  std::cout << datastring << std::endl;
+  
   
 }

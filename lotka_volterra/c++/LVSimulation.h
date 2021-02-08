@@ -16,6 +16,7 @@ public:
   void initialize_grid(int n_rows, int n_cols);
   void set_reaction_rates(float k1, float k2, float k3, float d1, float d2);
   void set_boundary_conditions(BoundaryConditions::type configuration);
+  void set_boundary_conditions(std::string bc_string);
 
   void set_grid(int row, int col, species s);
   species  get_grid(int row, int col);

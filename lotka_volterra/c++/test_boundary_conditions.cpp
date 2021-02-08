@@ -272,13 +272,13 @@ bool check_test_results(std::vector<BoundaryConditions::result> expected_result,
     }
 
     if (expected_nn_row[i] != test_result_nn_row[i]){
-      printf("Failed NN row (direction %d, expected %d and got %d)\n",i,expected_nn_row[i],test_result_nn_row[i]);
+      printf("Failed NN row (direction %d, expected %d and got %d)\n",(int)i,expected_nn_row[i],test_result_nn_row[i]);
       //std::cout << "Failed nearest neighbor row" << std::endl;
       test_passes = false;
     }
 
     if (expected_nn_col[i] != test_result_nn_col[i]){
-      printf("Failed NN column (direction %d, expected %d and got %d)\n",i,expected_nn_col[i],test_result_nn_col[i]);
+      printf("Failed NN column (direction %d, expected %d and got %d)\n",(int)i,expected_nn_col[i],test_result_nn_col[i]);
       //std::cout << "Failed nearest neighbor column" << std::endl;
       test_passes = false;
     }

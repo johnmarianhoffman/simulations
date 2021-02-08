@@ -21,6 +21,7 @@ int iterations = 0;
 int max_time = 1000000000;
 int measurement_interval = 1;
 std::string output_directory = "./";
+std::string boundary_conditions_string = "periodic";
 time_t t;
 
 float scale = 1.0;
@@ -166,11 +167,11 @@ void usage(){
          "                             the current directory is used.\n"
          " --headless                Run the simulation in without olc Pixel Game engine. \n"
          "                             Data will be saved to the current directory, or output (see below). \n"
+         " -bc, --boundaryconditions \"periodic\", \"non_periodic\", \"periodic_vertical\", or \"periodic_horizontal\"\n"
          " --help                    Show this message\n"
          "\n"
          " This software is Copyright (c), John Hoffman 2020. All rights reserved. \n"
          );
-
 }
 
 int main(int argc, char ** argv)
@@ -200,25 +201,27 @@ int main(int argc, char ** argv)
       output_directory = argv[++i];
     }
 
+    else if (curr_arg == "--boundaryconditions" || curr_arg == "-bc"){
+      boundary_conditions_string = argv[++i];
+    }
+
     else if (curr_arg == "--help"){
       usage();
       exit(1);
     }
     
     else {
-      usage();
+      std::cout << "ERROR: Unrecognized input option: " << curr_arg << std::endl;
       exit(1);
     }
   }
 
-
   /* Run the simulation without OLC Pixel Game Engine (no visualization) */
-  if (headless){
-    
+  if (headless){ 
     LVSimulation * __restrict__ m_simulation;
     m_simulation = new MakeevEtAl();
-    m_simulation->set_boundary_conditions(BoundaryConditions::type::non_periodic);
-    m_simulation->set_reaction_rates(0.5f, 0.5f, 0.04f, 0.0f, 0.0f); // Makeev et al     
+    m_simulation->set_boundary_conditions(boundary_conditions_string);
+    m_simulation->set_reaction_rates(0.5f, 0.5f, 0.04f, 0.0f, 0.0f); // Makeev et al
     m_simulation->initialize_grid(n_rows,n_cols);
     m_simulation->initialize_model();
 
@@ -226,16 +229,16 @@ int main(int argc, char ** argv)
     int curr_mc_step = 0;
     m_simulation->record_data(output_directory);
     while(floor(m_simulation->m_time_mc_total) <= max_time){
-      
-      m_simulation->step();
 
       // Whole time step has increased by 1, record data
       if (floor(m_simulation->m_time_mc_total) != curr_mc_step){
         curr_mc_step = floor(m_simulation->m_time_mc_total);
         m_simulation->record_data(output_directory);
       }
+      
+      m_simulation->step();
+
     }
-    
   }
 
   /* Run the simulation with OLC Pixel Game Engine */
